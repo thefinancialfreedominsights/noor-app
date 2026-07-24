@@ -1,0 +1,43 @@
+name: noor_app
+description: "Noor: Prayer Times & Quran"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+
+  # Networking - for fetching prayer times from the free Aladhan API
+  http: ^1.2.1
+
+  # Location - to auto-detect user's city for accurate prayer times
+  geolocator: ^12.0.0
+
+  # Local storage - saves settings, last-read Quran position, bookmarks (all on-device, no backend/server cost)
+  shared_preferences: ^2.2.3
+
+  # Compass sensor - powers the Qibla direction screen
+  flutter_compass: ^0.8.0
+
+  # Notifications - for prayer time alerts
+  flutter_local_notifications: ^17.2.1
+
+  # Date formatting (also used later for Hijri calendar in Phase 2)
+  intl: ^0.19.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  # assets folder will hold: app icon source, Quran data (JSON), short adhan audio clips
+  assets:
+    - assets/data/
+    - assets/audio/
+    - assets/icon/
