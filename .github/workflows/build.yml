@@ -1,0 +1,61 @@
+name: Build Android APK
+
+# Runs automatically every time you push code to the main branch,
+# and can also be triggered manually from the Actions tab.
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Flutter (always latest stable)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          # No flutter-version pin on purpose: pinning to an old version is
+          # exactly what caused the last build failure (old Flutter tooling
+          # + newer plugin = mismatched Android project structure). Always
+          # building against the latest stable release keeps us aligned
+          # with whatever compileSdk/targetSdk Google currently requires,
+          # without needing to remember to bump a version number by hand.
+
+      - name: Show Flutter/Dart version used for this build
+        run: flutter --version
+
+      - name: Generate Android platform files (if missing)
+        run: flutter create --platforms=android --org com.noorapp --project-name noor_app .
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Force targetSdk/compileSdk to Android 16 (API 36)
+        # Google Play requires new app submissions to target Android 16
+        # (API level 36) as of Aug 31, 2026. Flutter's generated project
+        # normally tracks this automatically via its own internal default,
+        # but we pin it explicitly here too as a safety net so a build
+        # never silently ships below Google's current requirement.
+        run: |
+          sed -i 's/flutter.compileSdkVersion/36/' android/app/build.gradle.kts || true
+          sed -i 's/flutter.targetSdkVersion/36/' android/app/build.gradle.kts || true
+          cat android/app/build.gradle.kts
+
+      - name: Build debug APK (for quick testing on your phone)
+        run: flutter build apk --debug
+
+      - name: Upload APK as downloadable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: noor-app-debug-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
