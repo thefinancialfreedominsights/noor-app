@@ -70,6 +70,9 @@ jobs:
           print(content)
           EOF
 
+      - name: Generate app icon from assets/icon/app_icon.png
+        run: dart run flutter_launcher_icons
+
       - name: Build debug APK (quick testing, larger/slower — has debug tooling baked in)
         run: flutter build apk --debug
 
