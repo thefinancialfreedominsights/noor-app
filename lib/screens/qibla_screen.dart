@@ -1,7 +1,13 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:flutter_qiblah/flutter_qiblah.dart';
+import 'package:flutter_compass/flutter_compass.dart';
+import 'package:geolocator/geolocator.dart';
 import '../theme/app_theme.dart';
+
+/// Coordinates of the Kaaba, Makkah.
+const double _kaabaLat = 21.4225;
+const double _kaabaLng = 39.8262;
 
 class QiblaScreen extends StatefulWidget {
   const QiblaScreen({super.key});
@@ -11,9 +17,12 @@ class QiblaScreen extends StatefulWidget {
 }
 
 class _QiblaScreenState extends State<QiblaScreen> {
-  bool _loading = true;
+  double? _qiblaBearing;
   String? _error;
-  bool _hasSensor = true;
+  bool _loading = true;
+
+  double? _smoothedHeading;
+  static const double _smoothingFactor = 0.15;
 
   @override
   void initState() {
@@ -27,28 +36,56 @@ class _QiblaScreenState extends State<QiblaScreen> {
       _error = null;
     });
     try {
-      final permission = await FlutterQiblah.requestPermissions();
-      if (permission != LocationPermission.always &&
-          permission != LocationPermission.whileInUse) {
-        throw Exception('Location permission is required for Qibla direction.');
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) throw Exception('Location services are disabled.');
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          throw Exception('Location permission denied.');
+        }
+      }
+      if (permission == LocationPermission.deniedForever) {
+        throw Exception('Location permission permanently denied.');
       }
 
-      final hasSensor = await FlutterQiblah.androidDeviceSensorSupport();
-      if (hasSensor == false) {
-        setState(() {
-          _hasSensor = false;
-          _loading = false;
-        });
-        return;
-      }
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 15),
+        ),
+      );
+      final bearing = _calculateQiblaBearing(pos.latitude, pos.longitude);
 
-      setState(() => _loading = false);
+      setState(() {
+        _qiblaBearing = bearing;
+        _loading = false;
+      });
     } catch (e) {
       setState(() {
         _error = e.toString();
         _loading = false;
       });
     }
+  }
+
+  double _calculateQiblaBearing(double lat, double lng) {
+    final lat1 = lat * pi / 180;
+    final lat2 = _kaabaLat * pi / 180;
+    final dLng = (_kaabaLng - lng) * pi / 180;
+
+    final y = sin(dLng) * cos(lat2);
+    final x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dLng);
+    final bearing = atan2(y, x) * 180 / pi;
+    return (bearing + 360) % 360;
+  }
+
+  double _smooth(double previous, double next) {
+    double delta = next - previous;
+    if (delta > 180) delta -= 360;
+    if (delta < -180) delta += 360;
+    return (previous + delta * _smoothingFactor + 360) % 360;
   }
 
   @override
@@ -60,9 +97,7 @@ class _QiblaScreenState extends State<QiblaScreen> {
             ? const Center(child: CircularProgressIndicator())
             : _error != null
                 ? _buildError()
-                : !_hasSensor
-                    ? _buildNoSensor()
-                    : _buildCompass(),
+                : _buildCompass(),
       ),
     );
   }
@@ -85,34 +120,58 @@ class _QiblaScreenState extends State<QiblaScreen> {
     );
   }
 
-  Widget _buildNoSensor() {
-    return const Center(
-      child: Padding(
-        padding: EdgeInsets.all(24),
-        child: Text(
-          'This device does not have the sensors needed for a live '
-          'compass (accelerometer/magnetometer).',
-          textAlign: TextAlign.center,
-        ),
-      ),
-    );
-  }
-
   Widget _buildCompass() {
-    return StreamBuilder<QiblahDirection>(
-      stream: FlutterQiblah.qiblahStream,
+    return StreamBuilder<CompassEvent>(
+      stream: FlutterCompass.events,
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Text(
+                'This device does not have a compass sensor, or it is '
+                'still starting up.',
+                textAlign: TextAlign.center,
+              ),
+            ),
+          );
         }
 
-        final qiblahDirection = snapshot.data!;
-        final angle = (qiblahDirection.qiblah) * (pi / 180) * -1;
+        final rawHeading = snapshot.data!.heading ?? 0;
+        _smoothedHeading = _smooth(_smoothedHeading ?? rawHeading, rawHeading);
+        final heading = _smoothedHeading!;
+
+        final accuracy = snapshot.data!.accuracy;
+        final needsCalibration = accuracy != null && accuracy > 0.5;
+
+        final needleAngle =
+            ((_qiblaBearing! - heading + 360) % 360) * pi / 180;
 
         return Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              if (needsCalibration)
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.amber),
+                  ),
+                  child: const Text(
+                    '⚠️ Compass accuracy is low. Move your phone in a '
+                    'figure-8 motion to calibrate.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 13),
+                  ),
+                ),
+              Text(
+                'Qibla: ${_qiblaBearing!.toStringAsFixed(0)}° from North',
+                style: const TextStyle(fontSize: 14, color: Colors.grey),
+              ),
+              const SizedBox(height: 24),
               SizedBox(
                 width: 260,
                 height: 260,
@@ -128,7 +187,7 @@ class _QiblaScreenState extends State<QiblaScreen> {
                       ),
                     ),
                     Transform.rotate(
-                      angle: angle,
+                      angle: needleAngle,
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -152,11 +211,7 @@ class _QiblaScreenState extends State<QiblaScreen> {
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 32),
                 child: Text(
-                  'Hold your phone flat. The mosque icon points toward the '
-                  'Qibla.\n\nIf it seems off, move your phone in a figure-8 '
-                  'motion a few times — this recalibrates the compass sensor, '
-                  'which is a normal thing to do occasionally (all compass '
-                  'apps need this, not just this one).',
+                  'Hold your phone flat. The mosque icon points toward the Qibla.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.grey),
                 ),
