@@ -12,9 +12,6 @@ class PrayerTimesService {
   static const int defaultMethod = 1;
 
   /// Gets the device's current GPS coordinates.
-  /// Throws if location permission is denied — caller should catch and
-  /// fall back to manual city selection (Phase 1 also needs that fallback
-  /// screen; wired in once this core flow is confirmed working).
   Future<Position> getCurrentLocation() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
@@ -34,6 +31,7 @@ class PrayerTimesService {
 
     return Geolocator.getCurrentPosition(
       desiredAccuracy: LocationAccuracy.medium,
+      timeLimit: const Duration(seconds: 15),
     );
   }
 
@@ -52,7 +50,11 @@ class PrayerTimesService {
       '?latitude=$latitude&longitude=$longitude&method=$method',
     );
 
-    final response = await http.get(uri);
+    final response = await http.get(uri).timeout(
+      const Duration(seconds: 15),
+      onTimeout: () => throw Exception(
+          'Prayer times request timed out. Check your internet connection.'),
+    );
     if (response.statusCode != 200) {
       throw Exception('Failed to fetch prayer times (${response.statusCode})');
     }
