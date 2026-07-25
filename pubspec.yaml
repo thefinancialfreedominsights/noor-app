@@ -31,6 +31,10 @@ dependencies:
   # Date formatting (also used later for Hijri calendar in Phase 2)
   intl: ^0.19.0
 
+  # Premium typography - elegant serif for numerals/headings + clean sans
+  # for everything else, instead of the default system font
+  google_fonts: ^8.0.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -40,9 +44,6 @@ dev_dependencies:
 
 # Config for flutter_launcher_icons - reads assets/icon/app_icon.png and
 # generates every density Android needs automatically.
-# adaptive_icon_background matches our dark teal/green so modern Android
-# (which wraps icons in its own shape+background if you don't specify one)
-# doesn't default to a white circle behind the artwork.
 flutter_launcher_icons:
   android: true
   image_path: "assets/icon/app_icon.png"
@@ -51,7 +52,6 @@ flutter_launcher_icons:
 
 flutter:
   uses-material-design: true
-  # assets folder will hold: app icon source, Quran data (JSON), short adhan audio clips
   assets:
     - assets/data/
     - assets/audio/
