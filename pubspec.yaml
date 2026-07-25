@@ -40,9 +40,14 @@ dev_dependencies:
 
 # Config for flutter_launcher_icons - reads assets/icon/app_icon.png and
 # generates every density Android needs automatically.
+# adaptive_icon_background matches our dark teal/green so modern Android
+# (which wraps icons in its own shape+background if you don't specify one)
+# doesn't default to a white circle behind the artwork.
 flutter_launcher_icons:
   android: true
   image_path: "assets/icon/app_icon.png"
+  adaptive_icon_background: "#0E4749"
+  adaptive_icon_foreground: "assets/icon/app_icon.png"
 
 flutter:
   uses-material-design: true
