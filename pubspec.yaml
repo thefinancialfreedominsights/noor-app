@@ -20,8 +20,10 @@ dependencies:
   # Local storage - saves settings, last-read Quran position, bookmarks (all on-device, no backend/server cost)
   shared_preferences: ^2.2.3
 
-  # Compass sensor - powers the Qibla direction screen
-  flutter_compass: ^0.8.0
+  # Qibla direction - purpose-built package that accounts for true vs
+  # magnetic north properly (this is what was causing the 20-30 degree
+  # inaccuracy with the generic compass approach)
+  flutter_qiblah: ^2.2.2
 
   # Notifications - for prayer time alerts
   flutter_local_notifications: ^17.2.1
@@ -33,6 +35,14 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  # Generates all required Android launcher icon sizes from one source image
+  flutter_launcher_icons: ^0.14.1
+
+# Config for flutter_launcher_icons - reads assets/icon/app_icon.png and
+# generates every density Android needs automatically.
+flutter_launcher_icons:
+  android: true
+  image_path: "assets/icon/app_icon.png"
 
 flutter:
   uses-material-design: true
