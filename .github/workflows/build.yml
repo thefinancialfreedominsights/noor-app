@@ -1,7 +1,5 @@
 name: Build Android APK
 
-# Runs automatically every time you push code to the main branch,
-# and can also be triggered manually from the Actions tab.
 on:
   push:
     branches: [ main ]
@@ -55,11 +53,37 @@ jobs:
           EOF
           cat android/app/build.gradle.kts
 
-      - name: Build debug APK (for quick testing on your phone)
+      - name: Add required Android permissions (location)
+        run: |
+          python3 - << 'EOF'
+          import re
+          path = "android/app/src/main/AndroidManifest.xml"
+          with open(path) as f:
+              content = f.read()
+          perms = (
+              '    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n'
+              '    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n'
+          )
+          content = re.sub(r'(<manifest[^>]*>)', r'\1\n' + perms, content, count=1)
+          with open(path, 'w') as f:
+              f.write(content)
+          print(content)
+          EOF
+
+      - name: Build debug APK (quick testing, larger/slower — has debug tooling baked in)
         run: flutter build apk --debug
 
-      - name: Upload APK as downloadable artifact
+      - name: Build release APK (smaller, faster — this is what real users would get)
+        run: flutter build apk --release
+
+      - name: Upload debug APK as downloadable artifact
         uses: actions/upload-artifact@v4
         with:
           name: noor-app-debug-apk
           path: build/app/outputs/flutter-apk/app-debug.apk
+
+      - name: Upload release APK as downloadable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: noor-app-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
