@@ -20,10 +20,10 @@ dependencies:
   # Local storage - saves settings, last-read Quran position, bookmarks (all on-device, no backend/server cost)
   shared_preferences: ^2.2.3
 
-  # Qibla direction - purpose-built package that accounts for true vs
-  # magnetic north properly (this is what was causing the 20-30 degree
-  # inaccuracy with the generic compass approach)
-  flutter_qiblah: ^3.2.0
+  # Compass sensor - powers the Qibla direction screen. We calculate the
+  # bearing to the Kaaba ourselves (great-circle formula) and smooth/filter
+  # the raw sensor readings for stability - see qibla_screen.dart.
+  flutter_compass: ^0.8.0
 
   # Notifications - for prayer time alerts
   flutter_local_notifications: ^17.2.1
