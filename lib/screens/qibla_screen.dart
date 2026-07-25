@@ -1,11 +1,12 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:geolocator/geolocator.dart';
 import '../theme/app_theme.dart';
+import '../theme/arch_motif.dart';
 
-/// Coordinates of the Kaaba, Makkah.
 const double _kaabaLat = 21.4225;
 const double _kaabaLng = 39.8262;
 
@@ -91,10 +92,10 @@ class _QiblaScreenState extends State<QiblaScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Qibla')),
+      appBar: AppBar(title: const Text('QIBLA')),
       body: SafeArea(
         child: _loading
-            ? const Center(child: CircularProgressIndicator())
+            ? const Center(child: CircularProgressIndicator(color: AppTheme.gold))
             : _error != null
                 ? _buildError()
                 : _buildCompass(),
@@ -109,11 +110,13 @@ class _QiblaScreenState extends State<QiblaScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.explore_off_rounded, size: 48, color: Colors.grey),
-            const SizedBox(height: 12),
-            Text(_error!, textAlign: TextAlign.center),
+            const Icon(Icons.explore_off_rounded, size: 48, color: AppTheme.textMuted),
             const SizedBox(height: 16),
-            FilledButton(onPressed: _init, child: const Text('Try Again')),
+            Text(_error!,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium),
+            const SizedBox(height: 20),
+            FilledButton(onPressed: _init, child: const Text('TRY AGAIN')),
           ],
         ),
       ),
@@ -144,82 +147,172 @@ class _QiblaScreenState extends State<QiblaScreen> {
         final accuracy = snapshot.data!.accuracy;
         final needsCalibration = accuracy != null && accuracy > 0.5;
 
-        final needleAngle =
-            ((_qiblaBearing! - heading + 360) % 360) * pi / 180;
+        final needleAngle = ((_qiblaBearing! - heading + 360) % 360) * pi / 180;
 
-        return Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (needsCalibration)
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.amber.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.amber),
+        return Stack(
+          children: [
+            Positioned(
+              bottom: -40,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: ArchMotif(
+                  width: 320,
+                  height: 260,
+                  color: AppTheme.gold.withOpacity(0.06),
+                ),
+              ),
+            ),
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (needsCalibration) _CalibrationBanner(onRecalibrate: _init),
+                  Text(
+                    'QIBLA · ${_qiblaBearing!.toStringAsFixed(0)}° FROM NORTH',
+                    style: Theme.of(context).textTheme.labelSmall,
                   ),
-                  child: const Text(
-                    '⚠️ Compass accuracy is low. Move your phone in a '
-                    'figure-8 motion to calibrate.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 13),
+                  const SizedBox(height: 28),
+                  _CompassRing(needleAngle: needleAngle),
+                  const SizedBox(height: 28),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 40),
+                    child: Text(
+                      'Hold your phone flat. The mosque icon points toward the Qibla.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
                   ),
-                ),
-              Text(
-                'Qibla: ${_qiblaBearing!.toStringAsFixed(0)}° from North',
-                style: const TextStyle(fontSize: 14, color: Colors.grey),
+                  const SizedBox(height: 16),
+                  TextButton.icon(
+                    onPressed: _init,
+                    icon: const Icon(Icons.refresh_rounded, size: 18, color: AppTheme.gold),
+                    label: const Text('RECALIBRATE',
+                        style: TextStyle(color: AppTheme.gold, letterSpacing: 1.2, fontSize: 12)),
+                  ),
+                ],
               ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: 260,
-                height: 260,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Container(
-                      width: 260,
-                      height: 260,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: AppTheme.primaryTeal, width: 2),
-                      ),
-                    ),
-                    Transform.rotate(
-                      angle: needleAngle,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.mosque_rounded,
-                              size: 40, color: AppTheme.accentGold),
-                          Container(
-                            width: 4,
-                            height: 90,
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryTeal,
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 32),
-                child: Text(
-                  'Hold your phone flat. The mosque icon points toward the Qibla.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         );
       },
+    );
+  }
+}
+
+class _CompassRing extends StatelessWidget {
+  final double needleAngle;
+  const _CompassRing({required this.needleAngle});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 280,
+      height: 280,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        boxShadow: AppTheme.goldGlow,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(140),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          child: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  AppTheme.surfaceCardLight.withOpacity(0.9),
+                  AppTheme.surfaceCard.withOpacity(0.95),
+                ],
+              ),
+              border: Border.all(color: AppTheme.gold.withOpacity(0.5), width: 1.4),
+            ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                for (int i = 0; i < 12; i++)
+                  Transform.rotate(
+                    angle: i * (pi / 6),
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: Container(
+                        margin: const EdgeInsets.only(top: 14),
+                        width: 2,
+                        height: i % 3 == 0 ? 12 : 6,
+                        color: AppTheme.gold.withOpacity(i % 3 == 0 ? 0.6 : 0.25),
+                      ),
+                    ),
+                  ),
+                Transform.rotate(
+                  angle: needleAngle,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.mosque_rounded, size: 36, color: AppTheme.gold),
+                      Container(
+                        width: 3,
+                        height: 78,
+                        margin: const EdgeInsets.only(top: 4),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [AppTheme.gold, AppTheme.gold.withOpacity(0.15)],
+                          ),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppTheme.gold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CalibrationBanner extends StatelessWidget {
+  final VoidCallback onRecalibrate;
+  const _CalibrationBanner({required this.onRecalibrate});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.goldLight.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.gold.withOpacity(0.5)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.explore_outlined, size: 16, color: AppTheme.goldLight),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Text(
+              'Low accuracy — move your phone in a figure-8 to calibrate',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(fontSize: 12, color: AppTheme.goldLight),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
