@@ -1,17 +1,19 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 import '../models/prayer_times.dart';
 
 /// Talks to the free, no-key-required Aladhan API (https://aladhan.com/prayer-times-api)
-/// This is the only external service the MVP depends on — no backend/server
-/// of our own to host or pay for.
 class PrayerTimesService {
-  /// Aladhan calculation method codes (method=1 is University of Islamic
-  /// Sciences, Karachi — the default most Pakistani users expect).
   static const int defaultMethod = 1;
 
-  /// Gets the device's current GPS coordinates.
+  /// Gets the device's current coordinates.
+  /// Prayer times only need city-level precision, so we use low accuracy
+  /// (resolves quickly via network/cell location) instead of waiting for a
+  /// full GPS lock, and wrap everything in our own timeout so this can
+  /// never hang indefinitely no matter what the plugin does internally -
+  /// this is what fixes the "loading forever" issue.
   Future<Position> getCurrentLocation() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
@@ -29,11 +31,26 @@ class PrayerTimesService {
       throw Exception('Location permission permanently denied.');
     }
 
-    return Geolocator.getCurrentPosition(
+    // Try a cached last-known position first - returns instantly if the
+    // OS has one, avoiding any wait at all in the common case.
+    try {
+      final last = await Geolocator.getLastKnownPosition()
+          .timeout(const Duration(seconds: 3));
+      if (last != null) return last;
+    } catch (_) {
+      // No cached position available - fall through to a fresh fix below.
+    }
+
+    return await Geolocator.getCurrentPosition(
       locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.medium,
-        timeLimit: Duration(seconds: 15),
+        accuracy: LocationAccuracy.low,
+        timeLimit: Duration(seconds: 12),
       ),
+    ).timeout(
+      const Duration(seconds: 14),
+      onTimeout: () => throw Exception(
+          'Could not get your location in time. Make sure location/GPS is '
+          'turned on, then try again.'),
     );
   }
 
