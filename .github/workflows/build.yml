@@ -53,7 +53,7 @@ jobs:
           EOF
           cat android/app/build.gradle.kts
 
-      - name: Add required Android permissions (location)
+      - name: Add required Android permissions (location + internet)
         run: |
           python3 - << 'EOF'
           import re
@@ -61,6 +61,7 @@ jobs:
           with open(path) as f:
               content = f.read()
           perms = (
+              '    <uses-permission android:name="android.permission.INTERNET" />\n'
               '    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n'
               '    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n'
           )
